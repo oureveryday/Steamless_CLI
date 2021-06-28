@@ -33,7 +33,7 @@ namespace Steamless.API.Model
         public SteamlessOptions()
         {
             this.VerboseOutput = true;
-            this.KeepBindSection = false;
+            this.KeepBindSection = true;
             this.DumpPayloadToDisk = false;
             this.DumpSteamDrmpToDisk = false;
             this.UseExperimentalFeatures = false;
