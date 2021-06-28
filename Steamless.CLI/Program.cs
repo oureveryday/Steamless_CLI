@@ -116,8 +116,15 @@ class MainClass {
                 continue;
             }
 
-            plugins[i].ProcessFile(executable, options);
-            return 0;
+            bool Status = plugins[i].ProcessFile(executable, options);
+            if (Status)
+            {
+                return 0;
+            }
+            else
+            {
+                return 1;
+            }
         }
         
             Console.WriteLine("Failed to find a plugin that could process " + executable);
