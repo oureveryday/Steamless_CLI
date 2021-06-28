@@ -8,6 +8,7 @@ The goal of Steamless is to make a single solution for unpacking all Steam DRM p
 However, due to personal limited funds, I cannot test every game myself.
 
 Modded to use steamless with command line by "Steamless.CLI.exe".
+
 Usage: Steamless.CLI.exe EXEFILE
 
 # What Steamless Wont Do For You
