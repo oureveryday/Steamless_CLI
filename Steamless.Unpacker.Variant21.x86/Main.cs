@@ -1,5 +1,5 @@
 ﻿/**
- * Steamless - Copyright (c) 2015 - 2020 atom0s [atom0s@live.com]
+ * Steamless - Copyright (c) 2015 - 2022 atom0s [atom0s@live.com]
  *
  * This work is licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License.
  * To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-nd/4.0/ or send a letter to
@@ -111,7 +111,7 @@ namespace Steamless.Unpacker.Variant21.x86
                 var bind = f.GetSectionData(".bind");
 
                 // Attempt to locate the known v2.x signature..
-                return Pe32Helpers.FindPattern(bind, "53 51 52 56 57 55 8B EC 81 EC 00 10 00 00 C7") > 0;
+                return Pe32Helpers.FindPattern(bind, "53 51 52 56 57 55 8B EC 81 EC 00 10 00 00 C7") != -1;
             }
             catch
             {
@@ -168,6 +168,13 @@ namespace Steamless.Unpacker.Variant21.x86
             this.Log("Step 6 - Rebuild and save the unpacked file.", LogMessageType.Information);
             if (!this.Step6())
                 return false;
+
+            if (this.Options.RecalculateFileChecksum)
+            {
+                this.Log("Step 7 - Rebuild unpacked file checksum.", LogMessageType.Information);
+                if (!this.Step7())
+                    return false;
+            }
 
             return true;
         }
@@ -300,15 +307,15 @@ namespace Steamless.Unpacker.Variant21.x86
         {
             // Scan for the needed data by a known pattern for the block of offset data..
             var drmpOffset = Pe32Helpers.FindPattern(this.SteamDrmpData, "8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 8D ?? ?? ?? ?? ?? 05");
-            if (drmpOffset == 0)
+            if (drmpOffset == -1)
             {
                 // Fall-back pattern scan for certain files that fail with the above pattern..
                 drmpOffset = Pe32Helpers.FindPattern(this.SteamDrmpData, "8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 8B");
-                if (drmpOffset == 0)
+                if (drmpOffset == -1)
                 {
                     // Fall-back pattern (2).. (Seen in some v2 variants.)
                     drmpOffset = Pe32Helpers.FindPattern(this.SteamDrmpData, "8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? A3 ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? A3 ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? A3 ?? ?? ?? ?? 8B");
-                    if (drmpOffset == 0)
+                    if (drmpOffset == -1)
                         return false;
 
                     // Use fallback offsets if this worked..
@@ -432,8 +439,12 @@ namespace Steamless.Unpacker.Variant21.x86
 
             try
             {
+                // Zero the DosStubData if desired..
+                if (this.Options.ZeroDosStubData && this.File.DosStubSize > 0)
+                    this.File.DosStubData = Enumerable.Repeat((byte)0, (int)this.File.DosStubSize).ToArray();
+
                 // Rebuild the file sections..
-                this.File.RebuildSections();
+                this.File.RebuildSections(this.Options.DontRealignSections == false);
 
                 // Open the unpacked file for writing..
                 var unpackedPath = this.File.FilePath + ".unpacked.exe";
@@ -451,7 +462,8 @@ namespace Steamless.Unpacker.Variant21.x86
                 var lastSection = this.File.Sections[this.File.Sections.Count - 1];
                 var originalEntry = BitConverter.ToUInt32(this.PayloadData.Skip(this.SteamDrmpOffsets[2]).Take(4).ToArray(), 0);
                 ntHeaders.OptionalHeader.AddressOfEntryPoint = this.File.GetRvaFromVa(originalEntry);
-                ntHeaders.OptionalHeader.SizeOfImage = lastSection.VirtualAddress + lastSection.VirtualSize;
+                ntHeaders.OptionalHeader.CheckSum = 0;
+                ntHeaders.OptionalHeader.SizeOfImage = this.File.GetAlignment(lastSection.VirtualAddress + lastSection.VirtualSize, this.File.NtHeaders.OptionalHeader.SectionAlignment);
                 this.File.NtHeaders = ntHeaders;
 
                 // Write the NT headers to the file..
@@ -502,6 +514,26 @@ namespace Steamless.Unpacker.Variant21.x86
             {
                 fStream?.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Step #7
+        /// 
+        /// Recalculate the file checksum.
+        /// </summary>
+        /// <returns></returns>
+        private bool Step7()
+        {
+            var unpackedPath = this.File.FilePath + ".unpacked.exe";
+            if (!Pe32Helpers.UpdateFileChecksum(unpackedPath))
+            {
+                this.Log(" --> Error trying to recalculate unpacked file checksum!", LogMessageType.Error);
+                return false;
+            }
+
+            this.Log(" --> Unpacked file updated with new checksum!", LogMessageType.Success);
+            return true;
+
         }
 
         /// <summary>

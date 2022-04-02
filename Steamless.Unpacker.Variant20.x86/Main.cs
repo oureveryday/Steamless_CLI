@@ -1,5 +1,5 @@
 ﻿/**
- * Steamless - Copyright (c) 2015 - 2020 atom0s [atom0s@live.com]
+ * Steamless - Copyright (c) 2015 - 2022 atom0s [atom0s@live.com]
  *
  * This work is licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License.
  * To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-nd/4.0/ or send a letter to
@@ -109,7 +109,7 @@ namespace Steamless.Unpacker.Variant20.x86
                 var bind = f.GetSectionData(".bind");
 
                 // Attempt to locate the known v2.0 signature..
-                return Pe32Helpers.FindPattern(bind, "53 51 52 56 57 55 8B EC 81 EC 00 10 00 00 BE") > 0;
+                return Pe32Helpers.FindPattern(bind, "53 51 52 56 57 55 8B EC 81 EC 00 10 00 00 BE") != -1;
             }
             catch
             {
@@ -158,6 +158,13 @@ namespace Steamless.Unpacker.Variant20.x86
             this.Log("Step 4 - Rebuild and save the unpacked file.", LogMessageType.Information);
             if (!this.Step4())
                 return false;
+
+            if (this.Options.RecalculateFileChecksum)
+            {
+                this.Log("Step 5 - Rebuild unpacked file checksum.", LogMessageType.Information);
+                if (!this.Step5())
+                    return false;
+            }
 
             return true;
         }
@@ -286,7 +293,7 @@ namespace Steamless.Unpacker.Variant20.x86
             try
             {
                 // Rebuild the file sections..
-                this.File.RebuildSections();
+                this.File.RebuildSections(this.Options.DontRealignSections == false);
             }
             catch
             {
@@ -309,6 +316,10 @@ namespace Steamless.Unpacker.Variant20.x86
 
             try
             {
+                // Zero the DosStubData if desired..
+                if (this.Options.ZeroDosStubData && this.File.DosStubSize > 0)
+                    this.File.DosStubData = Enumerable.Repeat((byte)0, (int)this.File.DosStubSize).ToArray();
+
                 // Open the unpacked file for writing..
                 var unpackedPath = this.File.FilePath + ".unpacked.exe";
                 fStream = new FileStream(unpackedPath, FileMode.Create, FileAccess.ReadWrite);
@@ -324,7 +335,8 @@ namespace Steamless.Unpacker.Variant20.x86
                 var ntHeaders = this.File.NtHeaders;
                 var lastSection = this.File.Sections[this.File.Sections.Count - 1];
                 ntHeaders.OptionalHeader.AddressOfEntryPoint = this.File.GetRvaFromVa(this.StubHeader.OEP);
-                ntHeaders.OptionalHeader.SizeOfImage = lastSection.VirtualAddress + lastSection.VirtualSize;
+                ntHeaders.OptionalHeader.CheckSum = 0;
+                ntHeaders.OptionalHeader.SizeOfImage = this.File.GetAlignment(lastSection.VirtualAddress + lastSection.VirtualSize, this.File.NtHeaders.OptionalHeader.SectionAlignment);
                 this.File.NtHeaders = ntHeaders;
 
                 // Write the NT headers to the file..
@@ -375,6 +387,26 @@ namespace Steamless.Unpacker.Variant20.x86
             {
                 fStream?.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Step #5
+        /// 
+        /// Recalculate the file checksum.
+        /// </summary>
+        /// <returns></returns>
+        private bool Step5()
+        {
+            var unpackedPath = this.File.FilePath + ".unpacked.exe";
+            if (!Pe32Helpers.UpdateFileChecksum(unpackedPath))
+            {
+                this.Log(" --> Error trying to recalculate unpacked file checksum!", LogMessageType.Error);
+                return false;
+            }
+
+            this.Log(" --> Unpacked file updated with new checksum!", LogMessageType.Success);
+            return true;
+
         }
 
         /// <summary>

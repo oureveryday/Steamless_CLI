@@ -1,5 +1,5 @@
 ﻿/**
- * Steamless - Copyright (c) 2015 - 2020 atom0s [atom0s@live.com]
+ * Steamless - Copyright (c) 2015 - 2022 atom0s [atom0s@live.com]
  *
  * This work is licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License.
  * To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-nd/4.0/ or send a letter to
@@ -304,17 +304,23 @@ namespace Steamless.API.PE32
         /// <summary>
         /// Rebuilds the sections by aligning them as needed. Updates the Nt headers to
         /// correct the new SizeOfImage after alignment is completed.
+        /// 
+        /// <param name="realign"></param>
         /// </summary>
-        public void RebuildSections()
+        public void RebuildSections(bool realign = true)
         {
             for (var x = 0; x < this.Sections.Count; x++)
             {
                 // Obtain the current section and realign the data..
                 var section = this.Sections[x];
-                section.VirtualAddress = this.GetAlignment(section.VirtualAddress, this.NtHeaders.OptionalHeader.SectionAlignment);
-                section.VirtualSize = this.GetAlignment(section.VirtualSize, this.NtHeaders.OptionalHeader.SectionAlignment);
-                section.PointerToRawData = this.GetAlignment(section.PointerToRawData, this.NtHeaders.OptionalHeader.FileAlignment);
-                section.SizeOfRawData = this.GetAlignment(section.SizeOfRawData, this.NtHeaders.OptionalHeader.FileAlignment);
+
+                if (realign)
+                {
+                    section.VirtualAddress = this.GetAlignment(section.VirtualAddress, this.NtHeaders.OptionalHeader.SectionAlignment);
+                    section.VirtualSize = this.GetAlignment(section.VirtualSize, this.NtHeaders.OptionalHeader.SectionAlignment);
+                    section.PointerToRawData = this.GetAlignment(section.PointerToRawData, this.NtHeaders.OptionalHeader.FileAlignment);
+                    section.SizeOfRawData = this.GetAlignment(section.SizeOfRawData, this.NtHeaders.OptionalHeader.FileAlignment);
+                }
 
                 // Store the sections updates..
                 this.Sections[x] = section;
@@ -322,7 +328,7 @@ namespace Steamless.API.PE32
 
             // Update the size of the image..
             var ntHeaders = this.NtHeaders;
-            ntHeaders.OptionalHeader.SizeOfImage = this.Sections.Last().VirtualAddress + this.Sections.Last().VirtualSize;
+            ntHeaders.OptionalHeader.SizeOfImage = (uint)this.GetAlignment(this.Sections.Last().VirtualAddress + this.Sections.Last().VirtualSize, this.NtHeaders.OptionalHeader.SectionAlignment);
             this.NtHeaders = ntHeaders;
         }
 

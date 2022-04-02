@@ -1,5 +1,5 @@
 ﻿/**
- * Steamless - Copyright (c) 2015 - 2020 atom0s [atom0s@live.com]
+ * Steamless - Copyright (c) 2015 - 2022 atom0s [atom0s@live.com]
  *
  * This work is licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License.
  * To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-nd/4.0/ or send a letter to
@@ -27,6 +27,7 @@ namespace Steamless.API.PE64
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using System.Linq;
     using System.Runtime.InteropServices;
 
@@ -90,6 +91,97 @@ namespace Steamless.API.PE64
         }
 
         /// <summary>
+        /// Calculates the PE checksum of the opened file. (OptionalHeader.Checksum should be 0 before calling this!)
+        /// </summary>
+        /// <param name="fStream"></param>
+        /// <returns></returns>
+        private static byte[] CalculateChecksum(FileStream fStream)
+        {
+            fStream.Position = 0;
+
+            var dataSize = fStream.Length;
+            var totalWords = dataSize / 2;
+            var sumTotal = 0;
+
+            // Process the file data in uint16_t chunks..
+            while (totalWords > 0)
+            {
+                var sumChunk = 0;
+                var chunkWords = totalWords;
+
+                // Prepare next chunk size..
+                if (chunkWords > UInt16.MaxValue)
+                    chunkWords = UInt16.MaxValue;
+
+                totalWords -= chunkWords;
+
+                do
+                {
+                    var data = new byte[2];
+                    fStream.Read(data, 0, 2);
+                    sumChunk += BitConverter.ToUInt16(data, 0);
+                } while (--chunkWords != 0);
+
+                sumTotal += (sumChunk >> 16) + (sumChunk & 0xFFFF);
+            }
+
+            if ((dataSize % 2) != 0)
+                sumTotal += fStream.ReadByte();
+
+            var checksum = (uint)(((sumTotal >> 16) + (sumTotal & 0xFFFF)) + dataSize);
+
+            return BitConverter.GetBytes(checksum);
+        }
+
+        /// <summary>
+        /// Updates the given files PE checksum value. (Path is assumed to be a 32bit PE file.)
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        public static bool UpdateFileChecksum(string path)
+        {
+            FileStream fStream = null;
+            var data = new byte[4];
+
+            try
+            {
+                // Open the file for reading/writing..
+                fStream = new FileStream(path, FileMode.Open, FileAccess.ReadWrite);
+
+                // Read the starting offset to the files NT headers..
+                fStream.Position = (int)Marshal.OffsetOf(typeof(NativeApi64.ImageDosHeader64), "e_lfanew");
+                fStream.Read(data, 0, 4);
+
+                var offset = BitConverter.ToUInt32(data, 0);
+
+                // Move to the files CheckSum position..
+                offset += 4 + (uint)Marshal.SizeOf(typeof(NativeApi64.ImageFileHeader64)) + (uint)Marshal.OffsetOf(typeof(NativeApi64.ImageOptionalHeader64), "CheckSum").ToInt32();
+                fStream.Position = offset;
+
+                // Ensure the checksum is 0 to start..
+                data = new byte[4] { 0, 0, 0, 0 };
+                fStream.Write(data, 0, 4);
+
+                // Calculate the new checksum..
+                var checksum = CalculateChecksum(fStream);
+
+                // Update the checksum value..
+                fStream.Position = offset;
+                fStream.Write(checksum, 0, 4);
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                fStream?.Dispose();
+            }
+        }
+
+        /// <summary>
         /// Scans the given data for the given pattern.
         /// 
         /// Notes:
@@ -99,7 +191,7 @@ namespace Steamless.API.PE64
         /// <param name="data"></param>
         /// <param name="pattern"></param>
         /// <returns></returns>
-        public static uint FindPattern(byte[] data, string pattern)
+        public static long FindPattern(byte[] data, string pattern)
         {
             try
             {
@@ -123,11 +215,11 @@ namespace Steamless.API.PE64
                         return (uint)x;
                 }
 
-                return 0;
+                return -1;
             }
             catch
             {
-                return 0;
+                return -1;
             }
         }
     }

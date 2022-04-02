@@ -1,5 +1,5 @@
 ﻿/**
- * Steamless - Copyright (c) 2015 - 2020 atom0s [atom0s@live.com]
+ * Steamless - Copyright (c) 2015 - 2022 atom0s [atom0s@live.com]
  *
  * This work is licensed under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License.
  * To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-nd/4.0/ or send a letter to
@@ -367,6 +367,15 @@ namespace Steamless.API.PE32
             /// Gets if this structure is valid for a PE file.
             /// </summary>
             public bool IsValid => this.SizeOfRawData != 0 && this.PointerToRawData != 0;
+
+            /// <summary>
+            /// Overrides the ToString handler to return the section name.
+            /// </summary>
+            /// <returns></returns>
+            public override string ToString()
+            {
+                return this.SectionName;
+            }
         }
 
         /// <summary>

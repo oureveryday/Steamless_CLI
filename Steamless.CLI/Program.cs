@@ -98,10 +98,11 @@ class MainClass {
 
     public static int Main(string[] args) {
         if (args.Length != 1) {
-            Console.WriteLine("Usage: Steamless.CLI EXEFILE");
+            Console.WriteLine("Usage: Steamless.CLI <EXEFILE>");
             return 1;
         }
         SteamlessOptions options = new SteamlessOptions();
+        options.KeepBindSection = true;
         String executable = args[0];
         MainClass main = new MainClass();
         List<SteamlessPlugin> plugins = main.GetSteamlessPlugins();

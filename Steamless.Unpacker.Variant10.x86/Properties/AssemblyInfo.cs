@@ -23,31 +23,18 @@
  * No warranties are given.
  */
 
-namespace Steamless.Model.Tasks
-{
-    using System.Threading;
-    using System.Threading.Tasks;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
-    public class StatusTask : BaseTask
-    {
-        /// <summary>
-        /// Default Constructor
-        /// </summary>
-        /// <param name="msg"></param>
-        public StatusTask(string msg)
-        {
-            this.Text = msg;
-        }
-
-        /// <summary>
-        /// The tasks main function to execute when started.
-        /// </summary>
-        public override Task DoTask()
-        {
-            return Task.Run(() =>
-                {
-                    Thread.Sleep(1000);
-                });
-        }
-    }
-}
+[assembly: AssemblyTitle("Steamless.Unpacker.Variant10.x86")]
+[assembly: AssemblyDescription("Steamless SteamStub Variant 1.0 (x86) Unpacker")]
+[assembly: AssemblyConfiguration("Release")]
+[assembly: AssemblyCompany("atom0s")]
+[assembly: AssemblyProduct("Steamless.Unpacker.Variant10.x86")]
+[assembly: AssemblyCopyright("Copyright © atom0s 2015 - 2022")]
+[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCulture("")]
+[assembly: ComVisible(false)]
+[assembly: Guid("02b58ab0-9b00-4b31-8d61-9d22d13d2c4a")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
