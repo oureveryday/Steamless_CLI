@@ -1,3 +1,5 @@
+(Project archived because of official support)
+
 # Steamless
 
 Steamless is a DRM remover of the various SteamStub variants applied to applications and games released on Steam via the DRM tool in the Steamworks SDK.
